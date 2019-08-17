@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : {TBA}
+// Deployed to : 0xcE8519Ec0C7F8eF35A717bE9867aFCA7f019869b on Ropsten
 //
 // Enjoy.
 //
@@ -58,7 +58,7 @@ contract IERC721 is IERC165 {
      * @dev Transfers a specific NFT (`tokenId`) from one account (`from`) to
      * another (`to`).
      *
-     * 
+     *
      *
      * Requirements:
      * - `from`, `to` cannot be zero.
@@ -999,7 +999,12 @@ contract GazeCoinGoobers is ERC721Full {
     mapping(uint256 => Attributes.Data) attributesByTokenIds;
     Counters.Counter private _tokenIds;
 
-    constructor() ERC721Full("GazeCoin Goobers", "GOOB") public {
+    // Duplicated from Attributes for NFT contract ABI to contain events
+    event AttributeAdded(uint256 indexed tokenId, string key, string value, uint totalAfter);
+    event AttributeRemoved(uint256 indexed tokenId, string key, uint totalAfter);
+    event AttributeUpdated(uint256 indexed tokenId, string key, string value);
+
+    constructor() ERC721Full("GazeCoin Goobers v0", "GOOBv0") public {
     }
 
     // Mint and burn
@@ -1046,7 +1051,16 @@ contract GazeCoinGoobers is ERC721Full {
             return attributes.index;
         }
     }
-    function getAttribute(uint256 tokenId, string memory key) public view returns (bool _exists, uint _index, string memory _value) {
+    function getKey(uint256 tokenId, uint _index) public view returns (string memory) {
+        Attributes.Data storage attributes = attributesByTokenIds[tokenId];
+        if (attributes.initialised) {
+            if (_index < attributes.index.length) {
+                return attributes.index[_index];
+            }
+        }
+        return "";
+    }
+    function getValue(uint256 tokenId, string memory key) public view returns (bool _exists, uint _index, string memory _value) {
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         if (!attributes.initialised) {
             return (false, 0, "");
