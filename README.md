@@ -6,6 +6,10 @@ The ERC721 non-fungible token contract records the ownership and other details o
 
 Using [OpenZeppelin Solidity v2.3.0](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/v2.3.0) copied to [./openzeppelin230](./openzeppelin230).
 
+## Questions
+
+* `tokenURI` to have a base + token id, or fully configurable tokenURI?
+* What further attributes to add
 
 <br />
 
