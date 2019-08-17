@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : 0xcE8519Ec0C7F8eF35A717bE9867aFCA7f019869b
+// Deployed to : 0xcE8519Ec0C7F8eF35A717bE9867aFCA7f019869b on Ropsten
 //
 // Enjoy.
 //
