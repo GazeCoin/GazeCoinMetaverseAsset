@@ -8,6 +8,7 @@ Notes:
 
 * Using [OpenZeppelin Solidity v2.3.0](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/v2.3.0) copied to [./openzeppelin230](./openzeppelin230).
 * [flattened/GazeCoinGoobers_flattened_v0.sol](flattened/GazeCoinGoobers_flattened_v0.sol) deployed to Ropsten [0xce8519ec0c7f8ef35a717be9867afca7f019869b](https://ropsten.etherscan.io/token/0xce8519ec0c7f8ef35a717be9867afca7f019869b).
+* [flattened/GazeCoinGoobers_flattened_v1.sol](flattened/GazeCoinGoobers_flattened_v1.sol) deployed to Ropsten [0x2667e5192bac646a165b7e4f717a7f1c0418cc27](https://ropsten.etherscan.io/token/0x2667e5192bac646a165b7e4f717a7f1c0418cc27).
 
 ## Questions
 

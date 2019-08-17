@@ -1,18 +1,195 @@
 pragma solidity ^0.5.11;
-pragma experimental ABIEncoderV2;
+// For getKeys(...) pragma experimental ABIEncoderV2;
 
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : 0xcE8519Ec0C7F8eF35A717bE9867aFCA7f019869b on Ropsten
+// Deployed to : v1 0x2667E5192Bac646A165b7E4f717A7F1c0418CC27 on Ropsten
 //
 // Enjoy.
 //
 // (c) BokkyPooBah / Bok Consulting Pty Ltd for GazeCoin 2019. The MIT Licence.
 // ----------------------------------------------------------------------------
 
-import "zeppelin-solidity/contracts/token/ERC721/ERC721Full.sol";
+import "zeppelin-solidity/contracts/token/ERC721/ERC721Enumerable.sol";
+import "zeppelin-solidity/contracts/token/ERC721/ERC721.sol";
+import "zeppelin-solidity/contracts/token/ERC721/IERC721Metadata.sol";
+import "zeppelin-solidity/contracts/introspection/ERC165.sol";
 import "zeppelin-solidity/contracts/drafts/Counters.sol";
+
+
+// ----------------------------------------------------------------------------
+// Owned contract
+// ----------------------------------------------------------------------------
+contract Owned {
+    address public owner;
+    address public newOwner;
+    bool private initialised;
+
+    event OwnershipTransferred(address indexed _from, address indexed _to);
+
+    modifier onlyOwner {
+        require(msg.sender == owner);
+        _;
+    }
+
+    function initOwned(address _owner) internal {
+        require(!initialised);
+        owner = _owner;
+        initialised = true;
+    }
+    function transferOwnership(address _newOwner) public onlyOwner {
+        newOwner = _newOwner;
+    }
+    function acceptOwnership() public {
+        require(msg.sender == newOwner);
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+        newOwner = address(0);
+    }
+    function transferOwnershipImmediately(address _newOwner) public onlyOwner {
+        emit OwnershipTransferred(owner, _newOwner);
+        owner = _newOwner;
+    }
+}
+
+
+// ----------------------------------------------------------------------------
+// Metadata
+// ----------------------------------------------------------------------------
+contract MyERC721Metadata is ERC165, ERC721, IERC721Metadata, Owned {
+    // Token name
+    string private _name;
+
+    // Token symbol
+    string private _symbol;
+
+    // Optional mapping for token URIs
+    mapping(uint256 => string) private _tokenURIs;
+
+    /*
+     *     bytes4(keccak256('name()')) == 0x06fdde03
+     *     bytes4(keccak256('symbol()')) == 0x95d89b41
+     *     bytes4(keccak256('tokenURI(uint256)')) == 0xc87b56dd
+     *
+     *     => 0x06fdde03 ^ 0x95d89b41 ^ 0xc87b56dd == 0x5b5e139f
+     */
+    bytes4 private constant _INTERFACE_ID_ERC721_METADATA = 0x5b5e139f;
+
+    string public baseURI = "http://multiverse.gazecoin.io/api/asset/";
+
+    /**
+     * @dev Constructor function
+     */
+    constructor (string memory name, string memory symbol) public {
+        initOwned(msg.sender);
+
+        _name = name;
+        _symbol = symbol;
+
+        // register the supported interfaces to conform to ERC721 via ERC165
+        _registerInterface(_INTERFACE_ID_ERC721_METADATA);
+    }
+
+    function uintToBytes(uint256 num) internal pure returns (bytes memory b) {
+        if (num == 0) {
+            b = new bytes(1);
+            b[0] = byte(uint8(48));
+        } else {
+            uint256 j = num;
+            uint256 length;
+            while (j != 0) {
+                length++;
+                j /= 10;
+            }
+            b = new bytes(length);
+            uint k = length - 1;
+            while (num != 0) {
+                b[k--] = byte(uint8(48 + num % 10));
+                num /= 10;
+            }
+        }
+    }
+
+    function setBaseURI(string memory uri) public onlyOwner {
+        baseURI = uri;
+    }
+
+    /**
+     * @dev Gets the token name.
+     * @return string representing the token name
+     */
+    function name() external view returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev Gets the token symbol.
+     * @return string representing the token symbol
+     */
+    function symbol() external view returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @dev Returns an URI for a given token ID.
+     * Throws if the token ID does not exist. May return an empty string.
+     * @param tokenId uint256 ID of the token to query
+     */
+    function tokenURI(uint256 tokenId) external view returns (string memory) {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        string memory url = _tokenURIs[tokenId];
+        bytes memory urlAsBytes = bytes(url);
+        if (urlAsBytes.length == 0) {
+            bytes memory baseURIAsBytes = bytes(baseURI);
+            bytes memory tokenIdAsBytes = uintToBytes(tokenId);
+            bytes memory b = new bytes(baseURIAsBytes.length + tokenIdAsBytes.length);
+            uint256 i;
+            uint256 j;
+            for (i = 0; i < baseURIAsBytes.length; i++) {
+                b[j++] = baseURIAsBytes[i];
+            }
+            for (i = 0; i < tokenIdAsBytes.length; i++) {
+                b[j++] = tokenIdAsBytes[i];
+            }
+            return string(b);
+        } else {
+            return _tokenURIs[tokenId];
+        }
+    }
+
+    /**
+     * @dev Internal function to set the token URI for a given token.
+     * Reverts if the token ID does not exist.
+     * @param tokenId uint256 ID of the token to set its URI
+     * @param uri string URI to assign
+     */
+    function _setTokenURI(uint256 tokenId, string memory uri) internal {
+        require(_exists(tokenId), "ERC721Metadata: URI set of nonexistent token");
+        _tokenURIs[tokenId] = uri;
+    }
+
+    function setTokenURI(uint256 tokenId, string memory uri) public {
+        require(ownerOf(tokenId) == msg.sender, "ERC721Metadata: set URI of token that is not own");
+        _setTokenURI(tokenId, uri);
+    }
+
+    /**
+     * @dev Internal function to burn a specific token.
+     * Reverts if the token does not exist.
+     * Deprecated, use _burn(uint256) instead.
+     * @param owner owner of the token to burn
+     * @param tokenId uint256 ID of the token being burned by the msg.sender
+     */
+    function _burn(address owner, uint256 tokenId) internal {
+        super._burn(owner, tokenId);
+
+        // Clear metadata (if any)
+        if (bytes(_tokenURIs[tokenId]).length != 0) {
+            delete _tokenURIs[tokenId];
+        }
+    }
+}
 
 
 // ----------------------------------------------------------------------------
@@ -72,12 +249,12 @@ library Attributes {
 }
 
 
-contract GazeCoinGoobers is ERC721Full {
+contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     using Attributes for Attributes.Data;
     using Attributes for Attributes.Value;
     using Counters for Counters.Counter;
 
-    mapping(uint256 => Attributes.Data) attributesByTokenIds;
+    mapping(uint256 => Attributes.Data) private attributesByTokenIds;
     Counters.Counter private _tokenIds;
 
     // Duplicated from Attributes for NFT contract ABI to contain events
@@ -85,7 +262,7 @@ contract GazeCoinGoobers is ERC721Full {
     event AttributeRemoved(uint256 indexed tokenId, string key, uint totalAfter);
     event AttributeUpdated(uint256 indexed tokenId, string key, string value);
 
-    constructor() ERC721Full("GazeCoin Goobers v0", "GOOBv0") public {
+    constructor() MyERC721Metadata("GazeCoin Goobers v1", "GOOBv1") public {
     }
 
     // Mint and burn
@@ -108,12 +285,6 @@ contract GazeCoinGoobers is ERC721Full {
         _burn(msg.sender, tokenId);
     }
 
-    // URI
-    function setTokenURI(uint256 tokenId, string memory uri) public {
-        require(ownerOf(tokenId) == msg.sender, "ERC721: set URI of token that is not own");
-        _setTokenURI(tokenId, uri);
-    }
-
     // Attributes
     function numberOfAttributes(uint256 tokenId) public view returns (uint) {
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
@@ -123,33 +294,34 @@ contract GazeCoinGoobers is ERC721Full {
             return attributes.length();
         }
     }
-    function getKeys(uint256 tokenId) public view returns (string[] memory) {
-        Attributes.Data storage attributes = attributesByTokenIds[tokenId];
-        if (!attributes.initialised) {
-            string[] memory empty;
-            return empty;
-        } else {
-            return attributes.index;
-        }
-    }
-    function getKey(uint256 tokenId, uint _index) public view returns (string memory) {
-        Attributes.Data storage attributes = attributesByTokenIds[tokenId];
-        if (attributes.initialised) {
-            if (_index < attributes.index.length) {
-                return attributes.index[_index];
-            }
-        }
-        return "";
-    }
-    function getValue(uint256 tokenId, string memory key) public view returns (bool _exists, uint _index, string memory _value) {
-        Attributes.Data storage attributes = attributesByTokenIds[tokenId];
-        if (!attributes.initialised) {
-            return (false, 0, "");
-        } else {
-            Attributes.Value memory attribute = attributes.entries[key];
-            return (attribute.exists, attribute.index, attribute.value);
-        }
-    }
+    // NOTE - Solidity returns an incorrect value
+    // function getKeys(uint256 tokenId) public view returns (string[] memory) {
+    //     Attributes.Data storage attributes = attributesByTokenIds[tokenId];
+    //     if (!attributes.initialised) {
+    //         string[] memory empty;
+    //         return empty;
+    //     } else {
+    //         return attributes.index;
+    //     }
+    // }
+    // function getKey(uint256 tokenId, uint _index) public view returns (string memory) {
+    //     Attributes.Data storage attributes = attributesByTokenIds[tokenId];
+    //     if (attributes.initialised) {
+    //         if (_index < attributes.index.length) {
+    //             return attributes.index[_index];
+    //         }
+    //     }
+    //     return "";
+    // }
+    // function getValue(uint256 tokenId, string memory key) public view returns (bool _exists, uint _index, string memory _value) {
+    //     Attributes.Data storage attributes = attributesByTokenIds[tokenId];
+    //     if (!attributes.initialised) {
+    //         return (false, 0, "");
+    //     } else {
+    //         Attributes.Value memory attribute = attributes.entries[key];
+    //         return (attribute.exists, attribute.index, attribute.value);
+    //     }
+    // }
     function getAttributeByIndex(uint256 tokenId, uint256 _index) public view returns (bool _exists, string memory _key, string memory _value) {
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         if (attributes.initialised) {
@@ -165,7 +337,7 @@ contract GazeCoinGoobers is ERC721Full {
         return (false, "", "");
     }
     function addAttribute(uint256 tokenId, string memory key, string memory value) public {
-        require(ownerOf(tokenId) == msg.sender, "ERC721: add attribute of token that is not own");
+        require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: add attribute of token that is not own");
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         if (!attributes.initialised) {
             attributes.init();
@@ -177,13 +349,13 @@ contract GazeCoinGoobers is ERC721Full {
         }
     }
     function removeAttribute(uint256 tokenId, string memory key) public {
-        require(ownerOf(tokenId) == msg.sender, "ERC721: remove attribute of token that is not own");
+        require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: remove attribute of token that is not own");
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
         attributes.remove(tokenId, key);
     }
     function updateAttribute(uint256 tokenId, string memory key, string memory value) public {
-        require(ownerOf(tokenId) == msg.sender, "ERC721: update attribute of token that is not own");
+        require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: update attribute of token that is not own");
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
         require(attributes.entries[key].exists);
