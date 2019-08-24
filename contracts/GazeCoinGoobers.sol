@@ -4,7 +4,10 @@ pragma solidity ^0.5.11;
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : v1 0x2667E5192Bac646A165b7E4f717A7F1c0418CC27 on Ropsten
+// Deployed to : v2 0x8AC9d73e98eeeEE0A6761Ac3B82cf2A43728fe78 on Ropsten
+//
+// TODO:
+// * Counter can be replaced with totalSupply()+1
 //
 // Enjoy.
 //
@@ -197,7 +200,7 @@ contract MyERC721Metadata is ERC165, ERC721, IERC721Metadata, Owned {
 // ----------------------------------------------------------------------------
 library Attributes {
     struct Value {
-        bool exists;
+        uint timestamp;
         uint index;
         string value;
     }
@@ -216,16 +219,16 @@ library Attributes {
         self.initialised = true;
     }
     function hasKey(Data storage self, string memory key) internal view returns (bool) {
-        return self.entries[key].exists;
+        return self.entries[key].timestamp > 0;
     }
     function add(Data storage self, uint256 tokenId, string memory key, string memory value) internal {
-        require(!self.entries[key].exists);
+        require(self.entries[key].timestamp == 0);
         self.index.push(key);
-        self.entries[key] = Value(true, self.index.length - 1, value);
+        self.entries[key] = Value(block.timestamp, self.index.length - 1, value);
         emit AttributeAdded(tokenId, key, value, self.index.length);
     }
     function remove(Data storage self, uint256 tokenId, string memory key) internal {
-        require(self.entries[key].exists);
+        require(self.entries[key].timestamp > 0);
         uint removeIndex = self.entries[key].index;
         emit AttributeRemoved(tokenId, key, self.index.length - 1);
         uint lastIndex = self.index.length - 1;
@@ -239,7 +242,8 @@ library Attributes {
     }
     function setValue(Data storage self, uint256 tokenId, string memory key, string memory value) internal {
         Value storage _value = self.entries[key];
-        require(_value.exists);
+        require(_value.timestamp > 0);
+        _value.timestamp = block.timestamp;
         emit AttributeUpdated(tokenId, key, value);
         _value.value = value;
     }
@@ -262,7 +266,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     event AttributeRemoved(uint256 indexed tokenId, string key, uint totalAfter);
     event AttributeUpdated(uint256 indexed tokenId, string key, string value);
 
-    constructor() MyERC721Metadata("GazeCoin Goobers v1", "GOOBv1") public {
+    constructor() MyERC721Metadata("GazeCoin Goobers v2", "GOOBv2") public {
     }
 
     // Mint and burn
@@ -322,7 +326,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     //         return (attribute.exists, attribute.index, attribute.value);
     //     }
     // }
-    function getAttributeByIndex(uint256 tokenId, uint256 _index) public view returns (bool _exists, string memory _key, string memory _value) {
+    function getAttributeByIndex(uint256 tokenId, uint256 _index) public view returns (string memory _key, string memory _value, uint timestamp) {
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         if (attributes.initialised) {
             if (_index < attributes.index.length) {
@@ -330,11 +334,11 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
                 bytes memory keyInBytes = bytes(key);
                 if (keyInBytes.length > 0) {
                     Attributes.Value memory attribute = attributes.entries[key];
-                    return (attribute.exists, key, attribute.value);
+                    return (key, attribute.value, attribute.timestamp);
                 }
             }
         }
-        return (false, "", "");
+        return ("", "", 0);
     }
     function addAttribute(uint256 tokenId, string memory key, string memory value) public {
         require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: add attribute of token that is not own");
@@ -342,7 +346,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
         if (!attributes.initialised) {
             attributes.init();
         }
-        if (attributes.entries[key].exists) {
+        if (attributes.entries[key].timestamp > 0) {
             attributes.setValue(tokenId, key, value);
         } else {
             attributes.add(tokenId, key, value);
@@ -358,7 +362,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
         require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: update attribute of token that is not own");
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
-        require(attributes.entries[key].exists);
+        require(attributes.entries[key].timestamp > 0);
         attributes.setValue(tokenId, key, value);
     }
 }
