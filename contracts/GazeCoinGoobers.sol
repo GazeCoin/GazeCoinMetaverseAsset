@@ -1,13 +1,11 @@
 pragma solidity ^0.5.11;
-// For getKeys(...) pragma experimental ABIEncoderV2;
+
+// For array of strings in the parameter. Not working correctly. pragma experimental ABIEncoderV2;
 
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : v2 0x8AC9d73e98eeeEE0A6761Ac3B82cf2A43728fe78 on Ropsten
-//
-// TODO:
-// * Counter can be replaced with totalSupply()+1
+// Deployed to : v6 0xBd33a67Dee08784d6C90772a79D437e6B259EC33 on Ropsten
 //
 // Enjoy.
 //
@@ -258,6 +256,10 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     using Attributes for Attributes.Value;
     using Counters for Counters.Counter;
 
+    string public constant TOKEN_TYPE_KEY = "token_type";
+    string public constant NAME_TYPE_KEY = "token_name";
+    string public constant DESCRIPTION_TYPE_KEY = "token_description";
+
     mapping(uint256 => Attributes.Data) private attributesByTokenIds;
     Counters.Counter private _tokenIds;
 
@@ -266,25 +268,60 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     event AttributeRemoved(uint256 indexed tokenId, string key, uint totalAfter);
     event AttributeUpdated(uint256 indexed tokenId, string key, string value);
 
-    constructor() MyERC721Metadata("GazeCoin Goobers v2", "GOOBv2") public {
+    constructor() MyERC721Metadata("GazeCoin Goobers v6", "GOOBv6") public {
     }
 
     // Mint and burn
-    function mint(address to) public returns (uint256) {
+
+    /**
+     * @dev Mint token
+     *
+     * @param to address of token owner
+     * @param tokenType Type of token, mandatory
+     * @param name Name of token, optional
+     * @param description Description of token, optional
+     */
+    function mint(address to, string memory tokenType, string memory name, string memory description) public returns (uint256) {
         _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
         _mint(to, newTokenId);
+
+        bytes memory tokenTypeInBytes = bytes(tokenType);
+        require(tokenTypeInBytes.length > 0);
+        addAttribute(newTokenId, TOKEN_TYPE_KEY, tokenType);
+
+        bytes memory nameInBytes = bytes(name);
+        if (nameInBytes.length > 0) {
+            addAttribute(newTokenId, NAME_TYPE_KEY, name);
+        }
+
+        bytes memory descriptionInBytes = bytes(description);
+        if (descriptionInBytes.length > 0) {
+            addAttribute(newTokenId, DESCRIPTION_TYPE_KEY, description);
+        }
+
         return newTokenId;
     }
-    function mintWithTokenURI(address to, string memory tokenURI) public returns (uint256) {
-        _tokenIds.increment();
-
-        uint256 newTokenId = _tokenIds.current();
-        _mint(to, newTokenId);
-        _setTokenURI(newTokenId, tokenURI);
-
-        return newTokenId;
-    }
+    // BELOW DOES NOT WORK CORRECTLY
+    // function mintWithAttributes(address to, string[] memory keys, string[] memory values) public returns (uint256) {
+    //     require(keys.length == values.length);
+    //     _tokenIds.increment();
+    //     uint256 newTokenId = _tokenIds.current();
+    //     _mint(to, newTokenId);
+    //     for (uint256 i = 0; i < keys.length; i++) {
+    //         addAttribute(newTokenId, keys[i], values[i]);
+    //     }
+    //     return newTokenId;
+    // }
+    // function mintWithTokenURI(address to, string memory tokenURI) public returns (uint256) {
+    //     _tokenIds.increment();
+    //
+    //     uint256 newTokenId = _tokenIds.current();
+    //     _mint(to, newTokenId);
+    //     _setTokenURI(newTokenId, tokenURI);
+    //
+    //     return newTokenId;
+    // }
     function burn(uint256 tokenId) public {
         _burn(msg.sender, tokenId);
     }
@@ -347,6 +384,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
             attributes.init();
         }
         if (attributes.entries[key].timestamp > 0) {
+            require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TOKEN_TYPE_KEY)));
             attributes.setValue(tokenId, key, value);
         } else {
             attributes.add(tokenId, key, value);
@@ -356,10 +394,12 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
         require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: remove attribute of token that is not own");
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
+        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TOKEN_TYPE_KEY)));
         attributes.remove(tokenId, key);
     }
     function updateAttribute(uint256 tokenId, string memory key, string memory value) public {
         require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: update attribute of token that is not own");
+        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TOKEN_TYPE_KEY)));
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
         require(attributes.entries[key].timestamp > 0);
