@@ -5,7 +5,11 @@ pragma solidity ^0.5.11;
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : v6 0xBd33a67Dee08784d6C90772a79D437e6B259EC33 on Ropsten
+// Deployed to : v8 0xcD447Dab9eCe15867807CBb6F675447Be751E4Bd on Ropsten
+//
+// TODO: Create a list of allowable attributes, optional or mandatory, with
+//       a defined list or unlimited, with certain atttributes updatable
+//       by the token contract owner
 //
 // Enjoy.
 //
@@ -256,9 +260,9 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     using Attributes for Attributes.Value;
     using Counters for Counters.Counter;
 
-    string public constant TOKEN_TYPE_KEY = "token_type";
-    string public constant NAME_TYPE_KEY = "token_name";
-    string public constant DESCRIPTION_TYPE_KEY = "token_description";
+    string public constant TYPE_KEY = "type";
+    string public constant NAME_KEY = "name";
+    string public constant DESCRIPTION_KEY = "description";
 
     mapping(uint256 => Attributes.Data) private attributesByTokenIds;
     Counters.Counter private _tokenIds;
@@ -268,7 +272,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     event AttributeRemoved(uint256 indexed tokenId, string key, uint totalAfter);
     event AttributeUpdated(uint256 indexed tokenId, string key, string value);
 
-    constructor() MyERC721Metadata("GazeCoin Goobers v6", "GOOBv6") public {
+    constructor() MyERC721Metadata("GazeCoin Goobers v8", "GOOBv8") public {
     }
 
     // Mint and burn
@@ -288,16 +292,19 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
 
         bytes memory tokenTypeInBytes = bytes(tokenType);
         require(tokenTypeInBytes.length > 0);
-        addAttribute(newTokenId, TOKEN_TYPE_KEY, tokenType);
+
+        Attributes.Data storage attributes = attributesByTokenIds[newTokenId];
+        attributes.init();
+        attributes.add(newTokenId, TYPE_KEY, tokenType);
 
         bytes memory nameInBytes = bytes(name);
         if (nameInBytes.length > 0) {
-            addAttribute(newTokenId, NAME_TYPE_KEY, name);
+            attributes.add(newTokenId, NAME_KEY, name);
         }
 
         bytes memory descriptionInBytes = bytes(description);
         if (descriptionInBytes.length > 0) {
-            addAttribute(newTokenId, DESCRIPTION_TYPE_KEY, description);
+            attributes.add(newTokenId, DESCRIPTION_KEY, description);
         }
 
         return newTokenId;
@@ -384,7 +391,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
             attributes.init();
         }
         if (attributes.entries[key].timestamp > 0) {
-            require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TOKEN_TYPE_KEY)));
+            require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
             attributes.setValue(tokenId, key, value);
         } else {
             attributes.add(tokenId, key, value);
@@ -394,12 +401,12 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
         require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: remove attribute of token that is not own");
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
-        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TOKEN_TYPE_KEY)));
+        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         attributes.remove(tokenId, key);
     }
     function updateAttribute(uint256 tokenId, string memory key, string memory value) public {
         require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: update attribute of token that is not own");
-        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TOKEN_TYPE_KEY)));
+        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
         require(attributes.entries[key].timestamp > 0);
