@@ -9,6 +9,7 @@ console.log(JSON.stringify(nftContract.symbol()));
 
 var deployer = eth.accounts[1];
 // var owner = "0x07fb31ff47Dc15f78C5261EEb3D711fb6eA985D1";
+var targetOwner = "0x07fb31ff47Dc15f78C5261EEb3D711fb6eA985D1";
 var owner = deployer;
 var gasPrice = web3.toWei(10, "gwei");
 console.log("Deployer " + deployer + " has balance " + eth.getBalance(deployer).shift(-18));
@@ -82,7 +83,7 @@ if (true) {
   }
 
 
-  if (true) {
+  if (false) {
     var spaceTemplate = {
       entities: [
         {
@@ -150,5 +151,9 @@ if (true) {
   }
 }
 
+nftContract.transferFrom(deployer, targetOwner, "2", {from: deployer, gas: 500000, gasPrice: web3.toWei(10, "gwei")});
+nftContract.transferFrom(deployer, targetOwner, "5", {from: deployer, gas: 500000, gasPrice: web3.toWei(10, "gwei")});
+nftContract.transferFrom(deployer, targetOwner, "6", {from: deployer, gas: 500000, gasPrice: web3.toWei(10, "gwei")});
+nftContract.transferFrom(deployer, targetOwner, "8", {from: deployer, gas: 500000, gasPrice: web3.toWei(10, "gwei")});
 
 EOF

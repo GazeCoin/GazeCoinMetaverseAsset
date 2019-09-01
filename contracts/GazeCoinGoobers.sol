@@ -5,11 +5,11 @@ pragma solidity ^0.5.11;
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : v8 0xcD447Dab9eCe15867807CBb6F675447Be751E4Bd on Ropsten
+// Deployed to : v9 0x2c3D13b086094E0de4f3E080833Cd256F7a18c2B on Ropsten
 //
-// TODO: Create a list of allowable attributes, optional or mandatory, with
-//       a defined list or unlimited, with certain atttributes updatable
-//       by the token contract owner
+// TODO: * Create a list of allowable attributes, optional or mandatory
+//         * with a defined list or unlimited
+//         * with certain atttributes updatable by the token contract owner
 //
 // Enjoy.
 //
@@ -242,6 +242,17 @@ library Attributes {
             self.index.length--;
         }
     }
+    function removeAll(Data storage self, uint256 tokenId) internal {
+        if (self.initialised) {
+            while (self.index.length > 0) {
+                uint lastIndex = self.index.length - 1;
+                string memory lastIndexKey = self.index[lastIndex];
+                emit AttributeRemoved(tokenId, lastIndexKey, lastIndex);
+                delete self.entries[lastIndexKey];
+                self.index.length--;
+            }
+        }
+    }
     function setValue(Data storage self, uint256 tokenId, string memory key, string memory value) internal {
         Value storage _value = self.entries[key];
         require(_value.timestamp > 0);
@@ -272,7 +283,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     event AttributeRemoved(uint256 indexed tokenId, string key, uint totalAfter);
     event AttributeUpdated(uint256 indexed tokenId, string key, string value);
 
-    constructor() MyERC721Metadata("GazeCoin Goobers v8", "GOOBv8") public {
+    constructor() MyERC721Metadata("GazeCoin Goobers v9", "GOOBv9") public {
     }
 
     // Mint and burn
@@ -330,7 +341,13 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     //     return newTokenId;
     // }
     function burn(uint256 tokenId) public {
+        // TODO - attributes.removeAll(...)
         _burn(msg.sender, tokenId);
+        Attributes.Data storage attributes = attributesByTokenIds[tokenId];
+        if (attributes.initialised) {
+            attributes.removeAll(tokenId);
+            delete attributesByTokenIds[tokenId];
+        }
     }
 
     // Attributes
@@ -386,12 +403,22 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     }
     function addAttribute(uint256 tokenId, string memory key, string memory value) public {
         require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: add attribute of token that is not own");
+        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
+        Attributes.Data storage attributes = attributesByTokenIds[tokenId];
+        if (!attributes.initialised) {
+            attributes.init();
+        }
+        require (attributes.entries[key].timestamp == 0);
+        attributes.add(tokenId, key, value);
+    }
+    function setAttribute(uint256 tokenId, string memory key, string memory value) public {
+        require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: set attribute of token that is not own");
+        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         if (!attributes.initialised) {
             attributes.init();
         }
         if (attributes.entries[key].timestamp > 0) {
-            require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
             attributes.setValue(tokenId, key, value);
         } else {
             attributes.add(tokenId, key, value);
@@ -399,9 +426,9 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     }
     function removeAttribute(uint256 tokenId, string memory key) public {
         require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: remove attribute of token that is not own");
+        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
-        require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         attributes.remove(tokenId, key);
     }
     function updateAttribute(uint256 tokenId, string memory key, string memory value) public {
