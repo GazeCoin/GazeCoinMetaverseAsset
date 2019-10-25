@@ -5,11 +5,13 @@ pragma solidity ^0.5.11;
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : v9 0x2c3D13b086094E0de4f3E080833Cd256F7a18c2B on Ropsten
+// Deployed to : v10 0x5C31be9C2ca80788274880030344230dFB8DFC4A on Ropsten
 //
-// TODO: * Create a list of allowable attributes, optional or mandatory
-//         * with a defined list or unlimited
-//         * with certain atttributes updatable by the token contract owner
+// TODO:
+//   * Create a list of allowable attributes, optional or mandatory
+//     with a defined list or unlimited with certain attributes updatable
+//     by the token contract owner
+//   * Allow token owner to permission secondary accounts
 //
 // Enjoy.
 //
@@ -174,10 +176,11 @@ contract MyERC721Metadata is ERC165, ERC721, IERC721Metadata, Owned {
         _tokenURIs[tokenId] = uri;
     }
 
-    function setTokenURI(uint256 tokenId, string memory uri) public {
-        require(ownerOf(tokenId) == msg.sender, "ERC721Metadata: set URI of token that is not own");
-        _setTokenURI(tokenId, uri);
-    }
+    // BK NOTE - Disable as not required currently
+    // function setTokenURI(uint256 tokenId, string memory uri) public {
+    //     require(ownerOf(tokenId) == msg.sender, "ERC721Metadata: set URI of token that is not own");
+    //     _setTokenURI(tokenId, uri);
+    // }
 
     /**
      * @dev Internal function to burn a specific token.
@@ -266,24 +269,102 @@ library Attributes {
 }
 
 
+// ----------------------------------------------------------------------------
+// Secondary Accounts Data Structure
+// ----------------------------------------------------------------------------
+library Accounts {
+    struct Account {
+        uint timestamp;
+        uint index;
+        address account;
+    }
+    struct Data {
+        bool initialised;
+        mapping(address => Account) entries;
+        address[] index;
+    }
+
+    event AccountAdded(address owner, address account, uint totalAfter);
+    event AccountRemoved(address owner, address account, uint totalAfter);
+    // event AccountUpdated(uint256 indexed tokenId, address owner, address account);
+
+    function init(Data storage self) internal {
+        require(!self.initialised);
+        self.initialised = true;
+    }
+    function hasKey(Data storage self, address account) internal view returns (bool) {
+        return self.entries[account].timestamp > 0;
+    }
+    function add(Data storage self, address owner, address account) internal {
+        require(self.entries[account].timestamp == 0);
+        self.index.push(account);
+        self.entries[account] = Account(block.timestamp, self.index.length - 1, account);
+        emit AccountAdded(owner, account, self.index.length);
+    }
+    function remove(Data storage self, address owner, address account) internal {
+        require(self.entries[account].timestamp > 0);
+        uint removeIndex = self.entries[account].index;
+        emit AccountRemoved(owner, account, self.index.length - 1);
+        uint lastIndex = self.index.length - 1;
+        address lastIndexKey = self.index[lastIndex];
+        self.index[removeIndex] = lastIndexKey;
+        self.entries[lastIndexKey].index = removeIndex;
+        delete self.entries[account];
+        if (self.index.length > 0) {
+            self.index.length--;
+        }
+    }
+    function removeAll(Data storage self, address owner) internal {
+        if (self.initialised) {
+            while (self.index.length > 0) {
+                uint lastIndex = self.index.length - 1;
+                address lastIndexKey = self.index[lastIndex];
+                emit AccountRemoved(owner, lastIndexKey, lastIndex);
+                delete self.entries[lastIndexKey];
+                self.index.length--;
+            }
+        }
+    }
+    // function setValue(Data storage self, uint256 tokenId, string memory key, string memory value) internal {
+    //     Value storage _value = self.entries[key];
+    //     require(_value.timestamp > 0);
+    //     _value.timestamp = block.timestamp;
+    //     emit AttributeUpdated(tokenId, key, value);
+    //     _value.value = value;
+    // }
+    function length(Data storage self) internal view returns (uint) {
+        return self.index.length;
+    }
+}
+
+
 contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     using Attributes for Attributes.Data;
     using Attributes for Attributes.Value;
     using Counters for Counters.Counter;
+    using Accounts for Accounts.Data;
+    using Accounts for Accounts.Account;
 
     string public constant TYPE_KEY = "type";
+    string public constant SUBTYPE_KEY = "subtype";
     string public constant NAME_KEY = "name";
     string public constant DESCRIPTION_KEY = "description";
+    string public constant TAGS_KEY = "tags";
 
     mapping(uint256 => Attributes.Data) private attributesByTokenIds;
     Counters.Counter private _tokenIds;
+    mapping(address => Accounts.Data) private secondaryAccounts;
 
     // Duplicated from Attributes for NFT contract ABI to contain events
     event AttributeAdded(uint256 indexed tokenId, string key, string value, uint totalAfter);
     event AttributeRemoved(uint256 indexed tokenId, string key, uint totalAfter);
     event AttributeUpdated(uint256 indexed tokenId, string key, string value);
 
-    constructor() MyERC721Metadata("GazeCoin Goobers v9", "GOOBv9") public {
+    event AccountAdded(address owner, address account, uint totalAfter);
+    event AccountRemoved(address owner, address account, uint totalAfter);
+    // event AccountUpdated(uint256 indexed tokenId, address owner, address account);
+
+    constructor() MyERC721Metadata("GazeCoin Goobers v10", "GOOBv10") public {
     }
 
     // Mint and burn
@@ -291,31 +372,43 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     /**
      * @dev Mint token
      *
-     * @param to address of token owner
-     * @param tokenType Type of token, mandatory
-     * @param name Name of token, optional
-     * @param description Description of token, optional
+     * @param _to address of token owner
+     * @param _type Type of token, mandatory
+     * @param _subtype Subtype of token, optional
+     * @param _name Name of token, optional
+     * @param _description Description of token, optional
+     * @param _tags Tags of token, optional
      */
-    function mint(address to, string memory tokenType, string memory name, string memory description) public returns (uint256) {
+    function mint(address _to, string memory _type, string memory _subtype, string memory _name, string memory _description, string memory _tags) public returns (uint256) {
         _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
-        _mint(to, newTokenId);
+        _mint(_to, newTokenId);
 
-        bytes memory tokenTypeInBytes = bytes(tokenType);
-        require(tokenTypeInBytes.length > 0);
+        bytes memory typeInBytes = bytes(_type);
+        require(typeInBytes.length > 0);
 
         Attributes.Data storage attributes = attributesByTokenIds[newTokenId];
         attributes.init();
-        attributes.add(newTokenId, TYPE_KEY, tokenType);
+        attributes.add(newTokenId, TYPE_KEY, _type);
 
-        bytes memory nameInBytes = bytes(name);
-        if (nameInBytes.length > 0) {
-            attributes.add(newTokenId, NAME_KEY, name);
+        bytes memory subtypeInBytes = bytes(_subtype);
+        if (subtypeInBytes.length > 0) {
+            attributes.add(newTokenId, SUBTYPE_KEY, _subtype);
         }
 
-        bytes memory descriptionInBytes = bytes(description);
+        bytes memory nameInBytes = bytes(_name);
+        if (nameInBytes.length > 0) {
+            attributes.add(newTokenId, NAME_KEY, _name);
+        }
+
+        bytes memory descriptionInBytes = bytes(_description);
         if (descriptionInBytes.length > 0) {
-            attributes.add(newTokenId, DESCRIPTION_KEY, description);
+            attributes.add(newTokenId, DESCRIPTION_KEY, _description);
+        }
+
+        bytes memory tagsInBytes = bytes(_tags);
+        if (tagsInBytes.length > 0) {
+            attributes.add(newTokenId, TAGS_KEY, _tags);
         }
 
         return newTokenId;
@@ -402,17 +495,17 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
         return ("", "", 0);
     }
     function addAttribute(uint256 tokenId, string memory key, string memory value) public {
-        require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: add attribute of token that is not own");
+        require(isOwnerOf(tokenId, msg.sender), "GazeCoinGoobers: add attribute of token that is not own");
         require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         if (!attributes.initialised) {
             attributes.init();
         }
-        require (attributes.entries[key].timestamp == 0);
+        require(attributes.entries[key].timestamp == 0);
         attributes.add(tokenId, key, value);
     }
     function setAttribute(uint256 tokenId, string memory key, string memory value) public {
-        require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: set attribute of token that is not own");
+        require(isOwnerOf(tokenId, msg.sender), "GazeCoinGoobers: set attribute of token that is not own");
         require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         if (!attributes.initialised) {
@@ -425,18 +518,48 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
         }
     }
     function removeAttribute(uint256 tokenId, string memory key) public {
-        require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: remove attribute of token that is not own");
+        require(isOwnerOf(tokenId, msg.sender), "GazeCoinGoobers: remove attribute of token that is not own");
         require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
         attributes.remove(tokenId, key);
     }
     function updateAttribute(uint256 tokenId, string memory key, string memory value) public {
-        require(ownerOf(tokenId) == msg.sender, "GazeCoinGoobers: update attribute of token that is not own");
+        require(isOwnerOf(tokenId, msg.sender), "GazeCoinGoobers: update attribute of token that is not own");
         require(keccak256(abi.encodePacked(key)) != keccak256(abi.encodePacked(TYPE_KEY)));
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         require(attributes.initialised);
         require(attributes.entries[key].timestamp > 0);
         attributes.setValue(tokenId, key, value);
+    }
+
+    function isOwnerOf(uint tokenId, address account) public view returns (bool) {
+        address owner = ownerOf(tokenId);
+        if (owner == account) {
+            return true;
+        } else {
+            Accounts.Data storage accounts = secondaryAccounts[owner];
+            if (accounts.initialised) {
+                if (accounts.hasKey(account)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    function addSecondaryAccount(address account) public {
+        require(account != address(0), "GazeCoinGoobers: cannot add null secondary account");
+        Accounts.Data storage accounts = secondaryAccounts[msg.sender];
+        if (!accounts.initialised) {
+            accounts.init();
+        }
+        require(accounts.entries[account].timestamp == 0);
+        accounts.add(msg.sender, account);
+    }
+    function removeSecondaryAccount(address account) public {
+        require(account != address(0), "GazeCoinGoobers: cannot remove null secondary account");
+        Accounts.Data storage accounts = secondaryAccounts[msg.sender];
+        require(accounts.initialised);
+        accounts.remove(msg.sender, account);
     }
 }

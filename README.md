@@ -10,6 +10,7 @@ Notes:
 * [flattened/GazeCoinGoobers_flattened_v0.sol](flattened/GazeCoinGoobers_flattened_v0.sol) deployed to Ropsten [0xce8519ec0c7f8ef35a717be9867afca7f019869b](https://ropsten.etherscan.io/token/0xce8519ec0c7f8ef35a717be9867afca7f019869b).
 * [flattened/GazeCoinGoobers_flattened_v1.sol](flattened/GazeCoinGoobers_flattened_v1.sol) deployed to Ropsten [0x2667e5192bac646a165b7e4f717a7f1c0418cc27](https://ropsten.etherscan.io/token/0x2667e5192bac646a165b7e4f717a7f1c0418cc27).
 * [flattened/GazeCoinGoobers_flattened_v2.sol](flattened/GazeCoinGoobers_flattened_v2.sol) deployed to Ropsten [0x8AC9d73e98eeeEE0A6761Ac3B82cf2A43728fe78](https://ropsten.etherscan.io/token/0x8AC9d73e98eeeEE0A6761Ac3B82cf2A43728fe78).
+* [flattened/GazeCoinGoobers_flattened_v10.sol](flattened/GazeCoinGoobers_flattened_v10.sol) deployed to Ropsten [0x5C31be9C2ca80788274880030344230dFB8DFC4A](https://ropsten.etherscan.io/token/0x5C31be9C2ca80788274880030344230dFB8DFC4A).
 
 ## Questions
 
@@ -20,4 +21,4 @@ Notes:
 
 <br />
 
-(c) BokkyPooBah / Bok Consulting Pty Ltd for GazeCoin - Aug 17 2019. The MIT Licence.
+(c) BokkyPooBah / Bok Consulting Pty Ltd for GazeCoin - Aug 24 2019. The MIT Licence.
