@@ -5,7 +5,7 @@ pragma solidity ^0.5.11;
 // ----------------------------------------------------------------------------
 // GazeCoin Metaverse Asset (ERC721 Non-Fungible Token)
 //
-// Deployed to : v10 0x5C31be9C2ca80788274880030344230dFB8DFC4A on Ropsten
+// Deployed to : v11 0xba2F79db60dAFc20Ca38b9CFa419a0Afc69842f1 on Ropsten
 //
 // TODO:
 //   * Create a list of allowable attributes, optional or mandatory
@@ -83,7 +83,7 @@ contract MyERC721Metadata is ERC165, ERC721, IERC721Metadata, Owned {
      */
     bytes4 private constant _INTERFACE_ID_ERC721_METADATA = 0x5b5e139f;
 
-    string public baseURI = "http://multiverse.gazecoin.io/api/asset/";
+    string public baseURI = "https://goblok.world/api/token/";
 
     /**
      * @dev Constructor function
@@ -351,9 +351,13 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     string public constant DESCRIPTION_KEY = "description";
     string public constant TAGS_KEY = "tags";
 
+    mapping(uint256 => string) baseAttributesDataByTokenIds;
+    mapping(uint256 => uint256) baseAttributesDataTimestampByTokenIds;
     mapping(uint256 => Attributes.Data) private attributesByTokenIds;
     Counters.Counter private _tokenIds;
     mapping(address => Accounts.Data) private secondaryAccounts;
+
+    event BaseAttributesDataUpdated(uint256 indexed tokenId, string baseAttributesData);
 
     // Duplicated from Attributes for NFT contract ABI to contain events
     event AttributeAdded(uint256 indexed tokenId, string key, string value, uint totalAfter);
@@ -364,7 +368,7 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     event AccountRemoved(address owner, address account, uint totalAfter);
     // event AccountUpdated(uint256 indexed tokenId, address owner, address account);
 
-    constructor() MyERC721Metadata("GazeCoin Goobers v10", "GOOBv10") public {
+    constructor() MyERC721Metadata("GazeCoin Goobers v11", "GOOBv11") public {
     }
 
     // Mint and burn
@@ -435,12 +439,26 @@ contract GazeCoinGoobers is ERC721Enumerable, MyERC721Metadata {
     // }
     function burn(uint256 tokenId) public {
         // TODO - attributes.removeAll(...)
+        // TODO - GAS COST IF THERE ARE LOTS OF ATTRIBUTES
         _burn(msg.sender, tokenId);
         Attributes.Data storage attributes = attributesByTokenIds[tokenId];
         if (attributes.initialised) {
             attributes.removeAll(tokenId);
             delete attributesByTokenIds[tokenId];
         }
+        delete baseAttributesDataByTokenIds[tokenId];
+        delete baseAttributesDataTimestampByTokenIds[tokenId];
+    }
+
+    // baseAttributesData
+    function getBaseAttributesData(uint256 tokenId) public view returns (string memory _baseAttributesData, uint timestamp) {
+        return (baseAttributesDataByTokenIds[tokenId], baseAttributesDataTimestampByTokenIds[tokenId]);
+    }
+    function setBaseAttributesData(uint256 tokenId, string memory baseAttributesData) public {
+        require(isOwnerOf(tokenId, msg.sender), "GazeCoinGoobers: set base attributes data of token that is not own");
+        baseAttributesDataByTokenIds[tokenId] = baseAttributesData;
+        baseAttributesDataTimestampByTokenIds[tokenId] = block.timestamp;
+        emit BaseAttributesDataUpdated(tokenId, baseAttributesData);
     }
 
     // Attributes
